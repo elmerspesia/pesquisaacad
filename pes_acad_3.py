@@ -2,19 +2,6 @@ import os
 import subprocess
 import sys
 import base64
-
-# Garantir que as dependências estão instaladas
-def install_requirements():
-    req_file = os.path.join(os.path.dirname(__file__), "requirements.txt")
-    if os.path.exists(req_file):
-        subprocess.run([sys.executable, "-m", "pip", "install", "-r", req_file], check=True)
-    else:
-        print("Arquivo requirements.txt não encontrado.")
-
-# Instalar pacotes necessários antes da execução
-install_requirements()
-
-# Importação das bibliotecas após instalação das dependências
 import streamlit as st
 import requests
 import pandas as pd
@@ -54,11 +41,11 @@ if not st.session_state.authenticated:
     if st.button("Entrar"):
         if username == "spesia123" and password == "spesia123":
             st.session_state.authenticated = True
-            st.rerun()  # ✅ Corrigido para `st.rerun()`
+            st.experimental_rerun()  # ✅ Garantir atualização correta da tela
         else:
             st.error("Login ou senha incorretos. Tente novamente.")
 
-# Se autenticado, exibir aplicação
+# Se autenticado, exibir aplicação completa
 if st.session_state.authenticated:
     try:
         logo = Image.open(LOGO_PATH)
@@ -72,7 +59,7 @@ if st.session_state.authenticated:
     if "artigos_completos" not in st.session_state:
         st.session_state.artigos_completos = pd.DataFrame(columns=["title", "date", "source", "abstract", "url", "summary"])
 
-    # Função para buscar artigos na PubMed
+    # 🔎 Função para buscar artigos na PubMed
     def search_scientific_articles(query):
         articles = []
         pubmed_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={query}&retmode=json&retmax=10"
@@ -94,7 +81,7 @@ if st.session_state.authenticated:
                     })
         return pd.DataFrame(articles)
 
-    # Função para Web Scraping
+    # 🌐 Função para Web Scraping
     def scrape_articles(urls):
         scraped = []
         for url in urls:
@@ -123,7 +110,7 @@ if st.session_state.authenticated:
                 })
         return pd.DataFrame(scraped)
 
-    # Função para gerar PDF
+    # 📄 Função para gerar PDF
     def generate_combined_pdf(dataframe):
         buffer = BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=letter)
@@ -174,14 +161,26 @@ if st.session_state.authenticated:
         buffer.seek(0)
         return buffer
 
-    # Gerar e exibir o PDF
+    # 🔍 Pesquisa por tema
+    query = st.text_input("Digite o tema de pesquisa:")
+    if st.button("Pesquisar"):
+        with st.spinner("Buscando artigos..."):
+            novos_artigos = search_scientific_articles(query)
+            st.session_state.artigos_completos = pd.concat([st.session_state.artigos_completos, novos_artigos], ignore_index=True)
+            st.dataframe(novos_artigos)
+
+    # 🌍 Web Scraping de links
+    urls = st.text_area("Cole os links dos artigos (um por linha):")
+    if st.button("Coletar Conteúdo"):
+        with st.spinner("Realizando scraping..."):
+            scraping = scrape_articles(urls.strip().splitlines())
+            st.session_state.artigos_completos = pd.concat([st.session_state.artigos_completos, scraping], ignore_index=True)
+            st.dataframe(scraping)
+
+    # 📑 Gerar e exibir o PDF
     if not st.session_state.artigos_completos.empty:
         pdf_data = generate_combined_pdf(st.session_state.artigos_completos)
-
-        # Criar link para visualização do PDF
         base64_pdf = base64.b64encode(pdf_data.getvalue()).decode("utf-8")
-        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="700" height="500" type="application/pdf"></iframe>'
+        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="700" height="500"></iframe>'
         st.markdown(pdf_display, unsafe_allow_html=True)
-
-        # Disponibilizar para download
         st.download_button("📥 Baixar Relatório PDF", pdf_data, file_name="relatorio_bibliografico.pdf", mime="application/pdf")
