@@ -122,30 +122,62 @@ if st.session_state.authenticated:
                 })
         return pd.DataFrame(scraped)
 
-    # Interface: Pesquisa por tema
-    query = st.text_input("Digite o tema de pesquisa:")
-    if st.button("Pesquisar"):
-        with st.spinner("Buscando artigos..."):
-            novos_artigos = search_scientific_articles(query)
-            st.session_state.artigos_completos = pd.concat([st.session_state.artigos_completos, novos_artigos], ignore_index=True)
-            st.dataframe(novos_artigos)
+    # Função para gerar PDF
+    def generate_combined_pdf(dataframe):
+        buffer = BytesIO()
+        pdf = canvas.Canvas(buffer, pagesize=letter)
+        pdf.setTitle("Relatório de Referências Bibliográficas e Bibliografia")
 
-    # Interface: Web scraping de links
-    st.subheader("🌍 Web Scraping de Artigos")
-    urls = st.text_area("Cole os links dos artigos (um por linha):")
-    if st.button("Coletar Conteúdo"):
-        with st.spinner("Realizando scraping..."):
-            scraping = scrape_articles(urls.strip().splitlines())
-            st.session_state.artigos_completos = pd.concat([st.session_state.artigos_completos, scraping], ignore_index=True)
-            st.dataframe(scraping)
+        # Logo centralizado
+        try:
+            logo = ImageReader(LOGO_PATH)
+            pdf.drawImage(logo, x=230, y=720, width=120, preserveAspectRatio=True)
+        except:
+            pass
 
-    # Resultados consolidados
+        # Título
+        pdf.setFont("Helvetica-Bold", 16)
+        pdf.drawCentredString(300, 700, "Relatório de Referências Bibliográficas e Bibliografia")
+
+        # Histograma
+        fig, ax = plt.subplots(figsize=(6, 2.5))
+        df_hist = dataframe.copy()
+        df_hist["date"] = pd.to_datetime(df_hist["date"], errors="coerce")
+        df_hist["year"] = df_hist["date"].dt.year
+        df_hist["year"].dropna().astype(int).hist(bins=10, ax=ax)
+        ax.set_title("Distribuição das Publicações por Ano")
+        img_hist = BytesIO()
+        plt.tight_layout()
+        fig.savefig(img_hist, format='png')
+        plt.close(fig)
+        img_hist.seek(0)
+        pdf.drawImage(ImageReader(img_hist), 130, 560, width=350, height=100)
+
+        # Conteúdo dos artigos
+        y = 540
+        pdf.setFont("Helvetica", 10)
+        for _, row in dataframe.iterrows():
+            if y < 100:
+                pdf.showPage()
+                y = 750
+            pdf.drawString(50, y, f"Título: {row['title']}")
+            y -= 15
+            pdf.drawString(50, y, f"Data: {row['date']} | Fonte: {row['source']}")
+            y -= 15
+            pdf.drawString(50, y, f"Link: {row['url']}")
+            y -= 15
+            pdf.drawString(50, y, f"Resumo gerado por IA: {row['summary']}")
+            y -= 30
+
+        pdf.save()
+        buffer.seek(0)
+        return buffer
+
+    # Exibir PDF e disponibilizar download
     if not st.session_state.artigos_completos.empty:
-        st.subheader("📚 Artigos Coletados")
-        st.dataframe(st.session_state.artigos_completos)
+        pdf_data = generate_combined_pdf(st.session_state.artigos_completos)
+        st.download_button("📥 Baixar Relatório PDF", pdf_data, file_name="relatorio_bibliografico.pdf", mime="application/pdf")
 
-        fig = px.histogram(st.session_state.artigos_completos, x="date", title="Publicações por Ano")
-        st.plotly_chart(fig)
-
-        csv_data = st.session_state.artigos_completos.to_csv(index=False).encode()
-        st.download_button("📥 Baixar CSV Consolidado", csv_data, file_name="referencias.csv", mime="text/csv")
+        # Exibir PDF na tela
+        st.subheader("📑 Visualização do Relatório Gerado")
+        st.pdf(pdf_data)
