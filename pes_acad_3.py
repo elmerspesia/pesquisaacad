@@ -19,36 +19,35 @@ st.set_page_config(page_title="Pesquisa Acadêmica Online", layout="wide")
 # Caminho do logo
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "Logo.png")
 
-# Inicializa autenticação
+# Estado da aplicação
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "page" not in st.session_state:
+    st.session_state.page = "login"  # Página inicial
 
-# Tela de Login
-if not st.session_state.authenticated:
-    login_container = st.empty()  # Criar um espaço vazio que será atualizado após login
+# 🔐 **Tela de Login**
+if st.session_state.page == "login":
+    try:
+        logo = Image.open(LOGO_PATH)
+        st.image(logo, width=150)
+    except:
+        st.warning("Logo não encontrado.")
 
-    with login_container.container():
-        try:
-            logo = Image.open(LOGO_PATH)
-            st.image(logo, width=150)
-        except:
-            st.warning("Logo não encontrado.")
+    st.markdown("<h2 style='text-align: center;'>Pesquisa Acadêmica Online</h2>", unsafe_allow_html=True)
 
-        st.markdown("<h2 style='text-align: center;'>Pesquisa Acadêmica Online</h2>", unsafe_allow_html=True)
+    username = st.text_input("Login", value="spesia123")
+    password = st.text_input("Senha", value="spesia123", type="password")
 
-        username = st.text_input("Login", value="spesia123")
-        password = st.text_input("Senha", value="spesia123", type="password")
+    if st.button("Entrar"):
+        if username == "spesia123" and password == "spesia123":
+            st.session_state.authenticated = True
+            st.session_state.page = "app"  # Muda para a aplicação
+            st.experimental_rerun()  # Atualiza a interface
+        else:
+            st.error("Login ou senha incorretos. Tente novamente.")
 
-        if st.button("Entrar"):
-            if username == "spesia123" and password == "spesia123":
-                st.session_state.authenticated = True
-                login_container.empty()  # Remove a tela de login
-                st.experimental_rerun()  # Força atualização da interface
-            else:
-                st.error("Login ou senha incorretos. Tente novamente.")
-
-# Se autenticado, carregar a aplicação
-if st.session_state.authenticated:
+# **Página da Aplicação**
+if st.session_state.authenticated and st.session_state.page == "app":
     try:
         logo = Image.open(LOGO_PATH)
         st.image(logo, width=120)
@@ -162,22 +161,6 @@ if st.session_state.authenticated:
         pdf.save()
         buffer.seek(0)
         return buffer
-
-    # 🔍 Pesquisa
-    query = st.text_input("Digite o tema de pesquisa:")
-    if st.button("Pesquisar"):
-        with st.spinner("Buscando artigos..."):
-            novos_artigos = search_scientific_articles(query)
-            st.session_state.artigos_completos = pd.concat([st.session_state.artigos_completos, novos_artigos], ignore_index=True)
-            st.dataframe(novos_artigos)
-
-    # 🌍 Web Scraping
-    urls = st.text_area("Cole os links dos artigos (um por linha):")
-    if st.button("Coletar Conteúdo"):
-        with st.spinner("Realizando scraping..."):
-            scraping = scrape_articles(urls.strip().splitlines())
-            st.session_state.artigos_completos = pd.concat([st.session_state.artigos_completos, scraping], ignore_index=True)
-            st.dataframe(scraping)
 
     # 📑 Gerar PDF
     if not st.session_state.artigos_completos.empty:
