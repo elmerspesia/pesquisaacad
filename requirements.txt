@@ -1,0 +1,8 @@
+streamlit
+requests
+pandas
+matplotlib
+plotly
+beautifulsoup4
+reportlab
+pillow
