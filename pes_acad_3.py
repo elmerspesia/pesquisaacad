@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import base64
 
 # Garantir que as dependências estão instaladas
 def install_requirements():
@@ -53,7 +54,7 @@ if not st.session_state.authenticated:
     if st.button("Entrar"):
         if username == "spesia123" and password == "spesia123":
             st.session_state.authenticated = True
-            st.rerun()  # ✅ Substituído por `st.rerun()`
+            st.rerun()  # ✅ Corrigido para `st.rerun()`
         else:
             st.error("Login ou senha incorretos. Tente novamente.")
 
@@ -173,11 +174,14 @@ if st.session_state.authenticated:
         buffer.seek(0)
         return buffer
 
-    # Exibir PDF e disponibilizar download
+    # Gerar e exibir o PDF
     if not st.session_state.artigos_completos.empty:
         pdf_data = generate_combined_pdf(st.session_state.artigos_completos)
-        st.download_button("📥 Baixar Relatório PDF", pdf_data, file_name="relatorio_bibliografico.pdf", mime="application/pdf")
 
-        # Exibir PDF na tela
-        st.subheader("📑 Visualização do Relatório Gerado")
-        st.pdf(pdf_data)
+        # Criar link para visualização do PDF
+        base64_pdf = base64.b64encode(pdf_data.getvalue()).decode("utf-8")
+        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="700" height="500" type="application/pdf"></iframe>'
+        st.markdown(pdf_display, unsafe_allow_html=True)
+
+        # Disponibilizar para download
+        st.download_button("📥 Baixar Relatório PDF", pdf_data, file_name="relatorio_bibliografico.pdf", mime="application/pdf")
