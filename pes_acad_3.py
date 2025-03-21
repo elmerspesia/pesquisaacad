@@ -53,7 +53,7 @@ if not st.session_state.authenticated:
     if st.button("Entrar"):
         if username == "spesia123" and password == "spesia123":
             st.session_state.authenticated = True
-            st.experimental_rerun()
+            st.rerun()  # ✅ Substituído por `st.rerun()`
         else:
             st.error("Login ou senha incorretos. Tente novamente.")
 
