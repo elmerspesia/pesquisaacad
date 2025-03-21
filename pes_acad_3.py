@@ -1,6 +1,4 @@
 import os
-import subprocess
-import sys
 import base64
 import streamlit as st
 import requests
@@ -15,37 +13,41 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 from PIL import Image
 
-# Configuração do app
+# Configuração inicial
 st.set_page_config(page_title="Pesquisa Acadêmica Online", layout="wide")
 
-# Caminho do logo no diretório do repositório
+# Caminho do logo
 LOGO_PATH = os.path.join(os.path.dirname(__file__), "Logo.png")
 
-# Inicializa autenticação na sessão
+# Inicializa autenticação
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# Tela de login inicial
+# Tela de Login
 if not st.session_state.authenticated:
-    try:
-        logo = Image.open(LOGO_PATH)
-        st.image(logo, width=150)
-    except:
-        st.warning("Logo não encontrado.")
+    login_container = st.empty()  # Criar um espaço vazio que será atualizado após login
 
-    st.markdown("<h2 style='text-align: center;'>Pesquisa Acadêmica Online</h2>", unsafe_allow_html=True)
+    with login_container.container():
+        try:
+            logo = Image.open(LOGO_PATH)
+            st.image(logo, width=150)
+        except:
+            st.warning("Logo não encontrado.")
 
-    username = st.text_input("Login", value="spesia123")
-    password = st.text_input("Senha", value="spesia123", type="password")
+        st.markdown("<h2 style='text-align: center;'>Pesquisa Acadêmica Online</h2>", unsafe_allow_html=True)
 
-    if st.button("Entrar"):
-        if username == "spesia123" and password == "spesia123":
-            st.session_state.authenticated = True
-            st.experimental_rerun()  # ✅ Garantir atualização correta da tela
-        else:
-            st.error("Login ou senha incorretos. Tente novamente.")
+        username = st.text_input("Login", value="spesia123")
+        password = st.text_input("Senha", value="spesia123", type="password")
 
-# Se autenticado, exibir aplicação completa
+        if st.button("Entrar"):
+            if username == "spesia123" and password == "spesia123":
+                st.session_state.authenticated = True
+                login_container.empty()  # Remove a tela de login
+                st.experimental_rerun()  # Força atualização da interface
+            else:
+                st.error("Login ou senha incorretos. Tente novamente.")
+
+# Se autenticado, carregar a aplicação
 if st.session_state.authenticated:
     try:
         logo = Image.open(LOGO_PATH)
@@ -59,7 +61,7 @@ if st.session_state.authenticated:
     if "artigos_completos" not in st.session_state:
         st.session_state.artigos_completos = pd.DataFrame(columns=["title", "date", "source", "abstract", "url", "summary"])
 
-    # 🔎 Função para buscar artigos na PubMed
+    # 🔎 Buscar artigos na PubMed
     def search_scientific_articles(query):
         articles = []
         pubmed_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={query}&retmode=json&retmax=10"
@@ -81,7 +83,7 @@ if st.session_state.authenticated:
                     })
         return pd.DataFrame(articles)
 
-    # 🌐 Função para Web Scraping
+    # 🌐 Web Scraping
     def scrape_articles(urls):
         scraped = []
         for url in urls:
@@ -110,7 +112,7 @@ if st.session_state.authenticated:
                 })
         return pd.DataFrame(scraped)
 
-    # 📄 Função para gerar PDF
+    # 📄 Gerar PDF
     def generate_combined_pdf(dataframe):
         buffer = BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=letter)
@@ -161,7 +163,7 @@ if st.session_state.authenticated:
         buffer.seek(0)
         return buffer
 
-    # 🔍 Pesquisa por tema
+    # 🔍 Pesquisa
     query = st.text_input("Digite o tema de pesquisa:")
     if st.button("Pesquisar"):
         with st.spinner("Buscando artigos..."):
@@ -169,7 +171,7 @@ if st.session_state.authenticated:
             st.session_state.artigos_completos = pd.concat([st.session_state.artigos_completos, novos_artigos], ignore_index=True)
             st.dataframe(novos_artigos)
 
-    # 🌍 Web Scraping de links
+    # 🌍 Web Scraping
     urls = st.text_area("Cole os links dos artigos (um por linha):")
     if st.button("Coletar Conteúdo"):
         with st.spinner("Realizando scraping..."):
@@ -177,7 +179,7 @@ if st.session_state.authenticated:
             st.session_state.artigos_completos = pd.concat([st.session_state.artigos_completos, scraping], ignore_index=True)
             st.dataframe(scraping)
 
-    # 📑 Gerar e exibir o PDF
+    # 📑 Gerar PDF
     if not st.session_state.artigos_completos.empty:
         pdf_data = generate_combined_pdf(st.session_state.artigos_completos)
         base64_pdf = base64.b64encode(pdf_data.getvalue()).decode("utf-8")
